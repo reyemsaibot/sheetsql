@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "SheetQL",
+    name: "SheetSQL",
     platforms: [.macOS(.v14)],
-    products: [.executable(name: "SheetQL", targets: ["SheetQL"])],
+    products: [.executable(name: "SheetSQL", targets: ["SheetSQL"])],
     targets: [
         .systemLibrary(name: "CSQLite"),
-        .executableTarget(name: "SheetQL", dependencies: ["CSQLite"], resources: [.process("Resources")]),
-        .testTarget(name: "SheetQLTests", dependencies: ["SheetQL"])
+        .executableTarget(name: "SheetSQL", dependencies: ["CSQLite"], resources: [.process("Resources")]),
+        .testTarget(name: "SheetSQLTests", dependencies: ["SheetSQL"])
     ]
 )

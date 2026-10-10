@@ -1,5 +1,5 @@
 import XCTest
-@testable import SheetQL
+@testable import SheetSQL
 
 final class SQLFilesAndTabsTests: XCTestCase {
     @MainActor

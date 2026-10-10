@@ -1,6 +1,6 @@
 import XCTest
 import AppKit
-@testable import SheetQL
+@testable import SheetSQL
 
 @MainActor
 private final class TestEditor: NSTextView {

@@ -1,7 +1,7 @@
 import XCTest
-@testable import SheetQL
+@testable import SheetSQL
 
-final class SheetQLTests: XCTestCase {
+final class SheetSQLTests: XCTestCase {
     func testQueriesPreserveTextAndJoin() async throws {
         let db = Database()
         let sheets = try await db.add([

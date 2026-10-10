@@ -7,13 +7,13 @@ BUILD_DIR="${SWIFT_BUILD_DIR:-.build}"
 swift build -c release --scratch-path "$BUILD_DIR" --disable-sandbox
 APP="$PWD/output/SheetSQL.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BUILD_DIR/release/SheetQL" "$APP/Contents/MacOS/SheetSQL.new"
+cp "$BUILD_DIR/release/SheetSQL" "$APP/Contents/MacOS/SheetSQL.new"
 mv -f "$APP/Contents/MacOS/SheetSQL.new" "$APP/Contents/MacOS/SheetSQL"
 cp Assets/SheetSQLIcon.icns "$APP/Contents/Resources/SheetSQLIcon.icns"
-RESOURCE_BUNDLE="$(find "$BUILD_DIR" -type d -path '*/release/SheetQL_SheetQL.bundle' -print -quit)"
+RESOURCE_BUNDLE="$(find "$BUILD_DIR" -type d -path '*/release/SheetSQL_SheetSQL.bundle' -print -quit)"
 if [[ -n "$RESOURCE_BUNDLE" ]]; then
-  rm -rf "$APP/Contents/Resources/SheetQL_SheetQL.bundle"
-  cp -R "$RESOURCE_BUNDLE" "$APP/Contents/Resources/SheetQL_SheetQL.bundle"
+  rm -rf "$APP/Contents/Resources/SheetSQL_SheetSQL.bundle"
+  cp -R "$RESOURCE_BUNDLE" "$APP/Contents/Resources/SheetSQL_SheetSQL.bundle"
 fi
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

@@ -174,7 +174,7 @@ final class Workspace: ObservableObject {
 }
 
 @main
-struct SheetQLApp: App {
+struct SheetSQLApp: App {
     @StateObject private var workspace = Workspace()
 
     init() {

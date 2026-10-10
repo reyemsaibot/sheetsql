@@ -12,7 +12,7 @@ projektspezifischen Angaben aktualisieren. Aktuelle Nutzeranweisungen haben Vorr
 - Projektordner, Git-Root, aktuelle Änderungen und vorhandene Anweisungen prüfen.
   Mehrere Apps liegen hier nebeneinander; niemals fremde Änderungen überschreiben.
 - Neue Apps in einem eigenen Unterordner und bei Bedarf eigenem Repository anlegen.
-  Nori liegt am Workspace-Root; Minuto unter `minuto/`, SheetSQL unter `SheetQL/`,
+  Nori liegt am Workspace-Root; Minuto unter `minuto/`, SheetSQL unter `SheetSQL/`,
   DataScope unter `DataScope/`. Ordnernamen sind keine zuverlässigen Produktnamen.
 - Kurz festhalten: Zielgruppe, Hauptablauf, MVP, bewusst spätere Funktionen,
   unterstützte macOS-Version, CPU-Architektur, Sprache, Datenformate und Datenort.
