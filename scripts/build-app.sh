@@ -3,13 +3,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/sheetql-clang-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="${TMPDIR:-/tmp}/sheetql-swift-cache"
-swift build -c release --disable-sandbox
+BUILD_DIR="${SWIFT_BUILD_DIR:-.build}"
+swift build -c release --scratch-path "$BUILD_DIR" --disable-sandbox
 APP="$PWD/output/SheetSQL.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/SheetQL "$APP/Contents/MacOS/SheetSQL.new"
+cp "$BUILD_DIR/release/SheetQL" "$APP/Contents/MacOS/SheetSQL.new"
 mv -f "$APP/Contents/MacOS/SheetSQL.new" "$APP/Contents/MacOS/SheetSQL"
 cp Assets/SheetSQLIcon.icns "$APP/Contents/Resources/SheetSQLIcon.icns"
-RESOURCE_BUNDLE="$(find .build -type d -path '*/release/SheetQL_SheetQL.bundle' -print -quit)"
+RESOURCE_BUNDLE="$(find "$BUILD_DIR" -type d -path '*/release/SheetQL_SheetQL.bundle' -print -quit)"
 if [[ -n "$RESOURCE_BUNDLE" ]]; then
   rm -rf "$APP/Contents/Resources/SheetQL_SheetQL.bundle"
   cp -R "$RESOURCE_BUNDLE" "$APP/Contents/Resources/SheetQL_SheetQL.bundle"
