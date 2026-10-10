@@ -26,6 +26,7 @@ final class Workspace: ObservableObject {
     @Published var comparison: ResultComparison?
     @Published var hasWorkspace = false
     @Published var profileRequested = false
+    @Published var resultProfileRequested = false
     @Published var joinBuilderRequested = false
     @Published var cleaningDemoRequested = false
     let editorController = SQLEditorController()
@@ -283,6 +284,7 @@ struct SheetSQLApp: App {
                 }
                 CommandMenu("Werkzeuge") {
                     Button("Spaltenprofil öffnen") { workspace.profileRequested = true }.disabled(workspace.selectedSheet == nil)
+                    Button("Profil aktives SQL-Ergebnis öffnen") { workspace.resultProfileRequested = true }.disabled(workspace.activeResult.columns.isEmpty)
                     Button("JOIN-Builder öffnen") { workspace.joinBuilderRequested = true }.disabled(workspace.sheets.count < 2)
                     Button("Datenbereinigung-Demo öffnen") { workspace.cleaningDemoRequested = true }
                 }
@@ -294,6 +296,7 @@ struct ContentView: View {
     @State private var profileSheet: Sheet?
     @State private var showJoinBuilder = false
     @State private var showCleaningDemo = false
+    @State private var showResultProfile = false
     private let accent = Color(red: 0.18, green: 0.48, blue: 0.39)
     var body: some View {
         HSplitView {
@@ -333,6 +336,7 @@ struct ContentView: View {
             .sheet(item: $profileSheet) { sheet in ProfileView(sheet: sheet) }
             .sheet(isPresented: $showJoinBuilder) { JoinBuilderView(sheets: model.sheets) { model.sql = $0; model.showSQLConsole(); model.editorController.focus() } }
             .sheet(isPresented: $showCleaningDemo) { DataCleaningDemoView() }
+            .sheet(isPresented: $showResultProfile) { ResultProfileView(result: model.activeResult) }
             .onChange(of: model.profileRequested) { _, requested in
                 if requested { profileSheet = model.selectedSheet; model.profileRequested = false }
             }
@@ -341,6 +345,9 @@ struct ContentView: View {
             }
             .onChange(of: model.cleaningDemoRequested) { _, requested in
                 if requested { showCleaningDemo = true; model.cleaningDemoRequested = false }
+            }
+            .onChange(of: model.resultProfileRequested) { _, requested in
+                if requested { showResultProfile = true; model.resultProfileRequested = false }
             }
     }
     var sidebar: some View {
@@ -478,6 +485,8 @@ struct ContentView: View {
             Menu {
                 Button { profileSheet = model.selectedSheet } label: { Label("Spaltenprofil", systemImage: "chart.bar.xaxis") }
                     .disabled(model.selectedSheet == nil)
+                Button { showResultProfile = true } label: { Label("Profil aktives SQL-Ergebnis", systemImage: "chart.bar.xaxis") }
+                    .disabled(model.activeResult.columns.isEmpty)
                 Button { showJoinBuilder = true } label: { Label("JOIN-Builder", systemImage: "arrow.triangle.merge") }
                     .disabled(model.sheets.count < 2)
                 Button { showCleaningDemo = true } label: { Label("Datenbereinigung-Demo", systemImage: "wand.and.stars") }
@@ -559,6 +568,7 @@ struct ContentView: View {
                 Button { model.export() } label: { Label("CSV exportieren", systemImage: "square.and.arrow.up") }.disabled(model.activeResult.columns.isEmpty || model.busy)
                 Button { model.exportExcel() } label: { Label("Excel exportieren", systemImage: "tablecells") }.disabled(model.activeResult.columns.isEmpty || model.busy)
                 Button { model.compareWithPrevious() } label: { Label("Vergleichen", systemImage: "square.2.layers.3d") }.disabled(model.activeResult.columns.isEmpty)
+                Button { showResultProfile = true } label: { Label("Profil", systemImage: "chart.bar.xaxis") }.disabled(model.activeResult.columns.isEmpty)
             }.padding(16)
             if model.activePresentation.isActive {
                 HStack {

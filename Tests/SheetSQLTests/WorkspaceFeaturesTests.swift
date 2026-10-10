@@ -42,6 +42,15 @@ final class WorkspaceFeaturesTests: XCTestCase {
         XCTAssertEqual(profiles[1].maximum, "18")
     }
 
+    func testJoinKeyDetectorUsesNamesAndSharedValues() {
+        let orders = Sheet(name: "Orders", source: "fixture", columns: ["CustomerID", "Amount"], rows: [[.number(1), .number(10)], [.number(2), .number(20)]])
+        let customers = Sheet(name: "Customers", source: "fixture", columns: ["CustomerID", "Name"], rows: [[.number(1), .text("A")], [.number(2), .text("B")]])
+        let suggestions = JoinKeyDetector.suggestions(left: orders, right: customers)
+        XCTAssertEqual(suggestions.first?.leftColumn, "CustomerID")
+        XCTAssertEqual(suggestions.first?.rightColumn, "CustomerID")
+        XCTAssertTrue(suggestions.first?.reason.contains("gleicher Spaltenname") == true)
+    }
+
     func testDatabaseValidationRejectsWritesAndAcceptsSelects() async throws {
         let database = Database()
         let sourceURL = URL(fileURLWithPath: "/tmp/data.xlsx")
