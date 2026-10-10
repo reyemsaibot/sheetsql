@@ -19,6 +19,14 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(SQLCompletion.candidates(model.sqlCompletionWords, matching: "reg"), ["Region"])
     }
 
+    func testSQLCompletionOnlyTriggersForTypedIdentifierCharacters() {
+        XCTAssertTrue(SQLCompletion.shouldOffer(for: "P"))
+        XCTAssertTrue(SQLCompletion.shouldOffer(for: "_"))
+        XCTAssertFalse(SQLCompletion.shouldOffer(for: ""))
+        XCTAssertFalse(SQLCompletion.shouldOffer(for: " "))
+        XCTAssertFalse(SQLCompletion.shouldOffer(for: "OPLANT"))
+    }
+
     @MainActor
     func testImportAndClosePreserveSQLAndGroupByWorkbook() async throws {
         let model = Workspace()

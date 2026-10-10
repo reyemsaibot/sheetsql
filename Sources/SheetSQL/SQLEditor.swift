@@ -79,6 +79,7 @@ struct SQLEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
         var suggestions: [String]
+        private var shouldOfferCompletion = false
         init(text: Binding<String>, suggestions: [String]) {
             self.text = text
             self.suggestions = suggestions
@@ -94,6 +95,16 @@ struct SQLEditor: NSViewRepresentable {
             }
             return false
         }
+        func textView(_ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?) -> Bool {
+            guard let replacementString, !replacementString.isEmpty else {
+                // Deleting a wrongly inserted identifier must never reopen the
+                // completion popup or reinsert the deleted suffix.
+                shouldOfferCompletion = false
+                return true
+            }
+            shouldOfferCompletion = SQLCompletion.shouldOffer(for: replacementString)
+            return true
+        }
         func textDidChange(_ notification: Notification) {
             guard let editor = notification.object as? NSTextView else { return }
             text.wrappedValue = editor.string
@@ -101,8 +112,10 @@ struct SQLEditor: NSViewRepresentable {
             if let container = editor.enclosingScrollView?.superview as? SQLEditorContainer {
                 updateGutter(in: container, text: editor.string)
             }
+            let offerCompletion = shouldOfferCompletion
+            shouldOfferCompletion = false
             let partial = editor.currentPartialWord
-            if partial.count >= 2, editor.window?.firstResponder === editor {
+            if offerCompletion, partial.count >= 2, editor.window?.firstResponder === editor {
                 DispatchQueue.main.async { [weak editor] in editor?.complete(nil) }
             }
         }
@@ -127,6 +140,12 @@ struct SQLEditor: NSViewRepresentable {
 }
 
 enum SQLCompletion {
+    static func shouldOffer(for replacement: String) -> Bool {
+        replacement.count == 1 && replacement.unicodeScalars.allSatisfy { scalar in
+            CharacterSet.alphanumerics.contains(scalar) || scalar == "_"
+        }
+    }
+
     static func candidates(_ words: [String], matching partial: String) -> [String] {
         let normalized = partial.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else { return words.sorted() }
