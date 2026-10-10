@@ -15,6 +15,18 @@ Mit „Excel-Datei öffnen“ eine oder mehrere `.xlsx`-/`.xlsm`-Dateien importi
 
 `⌘O` öffnet Dateien, `⌘Return` führt SQL aus. `⇧⌘W`, „Ausgewählte Excel-Datei schließen“ im Dateimenü oder „Datei schließen“ im Kontextmenü entfernen sämtliche Blätter dieser Datei aus der Sitzung. Die Quelldatei bleibt unverändert. SQL und Verlauf bleiben erhalten; die Ergebnisansicht wird beim Schließen geleert. Nach dem Schließen der letzten Datei erscheint wieder der Startbildschirm.
 
+## Screenshots
+
+Die folgenden Ansichten verwenden ausschließlich synthetische Beispieldaten. Sie zeigen den typischen Ablauf: Tabellen und Spalten auswählen, SQL ausführen und das Ergebnis anschließend sortieren, filtern oder exportieren.
+
+![SQL-Konsole mit Tabellen, Spalten und einer Aggregatabfrage](docs/screenshots/sql-console.svg)
+
+*SQL-Konsole: `Umsaetze` und `Materialstamm` stehen als Tabellen bereit; die Abfrage gruppiert Umsätze nach Region.*
+
+![Ergebnisansicht mit Sortierung und aktivem Filter](docs/screenshots/query-result.svg)
+
+*Ergebnisansicht: Die Umsatzspalte ist absteigend sortiert, der Regionsfilter ist oberhalb der Tabelle sichtbar.*
+
 ## SQL
 
 Jedes nicht leere Arbeitsblatt wird zu einer Tabelle. Die erste befüllte Zeile liefert die Spaltennamen. Leere oder doppelte Namen werden ergänzt; gleichnamige Blätter erhalten einen Suffix. Die Seitenleiste zeigt die tatsächlich verwendeten Namen.
