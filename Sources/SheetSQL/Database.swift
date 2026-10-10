@@ -31,7 +31,7 @@ actor Database {
                 while (sheets + added).contains(where: { $0.name.lowercased() == name.lowercased() }) || name.lowercased().hasPrefix("sqlite_") {
                     name = "\(input.name.lowercased().hasPrefix("sqlite_") ? "sheet" : input.name)_\(i)"; i += 1
                 }
-                let sheet = Sheet(workbookID: input.workbookID, name: name, source: input.source, columns: input.columns, rows: input.rows)
+                let sheet = Sheet(workbookID: input.workbookID, name: name, source: input.source, sourceURL: input.sourceURL, columns: input.columns, rows: input.rows)
                 // No column affinity: preserve numeric-looking text such as article codes and leading zeroes.
                 try execute("CREATE TABLE \(quoted(name)) (\(sheet.columns.map(quoted).joined(separator: ",")))")
                 var statement: OpaquePointer?
@@ -111,5 +111,20 @@ actor Database {
         }
         result.numericColumns = numeric.subtracting(nonnumeric)
         result.seconds = Date().timeIntervalSince(start); return result
+    }
+
+    func validate(_ sql: String) throws {
+        guard let pointer = strdup(sql) else { throw AppError(message: "Nicht genügend Speicher.") }
+        defer { free(pointer) }
+        var statement: OpaquePointer?
+        var tail: UnsafePointer<CChar>?
+        guard sqlite3_prepare_v2(db, pointer, -1, &statement, &tail) == SQLITE_OK else { throw failure() }
+        defer { sqlite3_finalize(statement) }
+        if let tail, !String(cString: tail).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw AppError(message: "Bitte nur eine SQL-Abfrage gleichzeitig ausführen.")
+        }
+        guard statement != nil, sqlite3_column_count(statement) > 0, sqlite3_stmt_readonly(statement) != 0 else {
+            throw AppError(message: "Bitte eine SELECT-Abfrage eingeben.")
+        }
     }
 }

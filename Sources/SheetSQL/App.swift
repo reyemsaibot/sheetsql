@@ -13,6 +13,7 @@ final class Workspace: ObservableObject {
     @Published var selectedResultTab: UUID?
     @Published var isSQLConsoleVisible = true
     @Published var sqlFileURL: URL?
+    @Published var workspaceURL: URL?
     @Published var savedSQL: String?
     var resultSQL = ""
     var nextResultTabNumber = 1
@@ -21,6 +22,8 @@ final class Workspace: ObservableObject {
     @Published var error: String?
     @Published var status = "Bereit"
     @Published var history: [String] = []
+    @Published var favorites: [FavoriteQuery] = []
+    @Published var comparison: ResultComparison?
     @Published var hasWorkspace = false
     let editorController = SQLEditorController()
     let database = Database()
@@ -138,9 +141,10 @@ final class Workspace: ObservableObject {
     func preview(_ sheet: Sheet) { selectedResultTab = nil; isSQLConsoleVisible = true; selected = sheet.name; sql = "SELECT * FROM \(quoted(sheet.name))\nLIMIT 1000;"; run() }
     func run() {
         guard !busy else { return }; busy = true; error = nil
-        let query = sql
+        guard let query = resolvedSQL() else { busy = false; return }
         Task {
             do {
+                try await database.validate(query)
                 result = try await database.query(query)
                 resultSQL = query
                 history.removeAll { $0 == query }; history.insert(query, at: 0); history = Array(history.prefix(15))
@@ -148,6 +152,35 @@ final class Workspace: ObservableObject {
             } catch { fail(error) }
         }
     }
+    func resolvedSQL() -> String? {
+        let names = SQLParameters.names(in: sql)
+        guard !names.isEmpty else { return sql }
+        let alert = NSAlert(); alert.messageText = "Abfrageparameter"
+        alert.informativeText = "Bitte Werte für die Parameter eingeben. Die SQL-Abfrage im Editor bleibt unverändert."
+        let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 8
+        var fields: [(String, NSTextField)] = []
+        for name in names {
+            let field = NSTextField(string: "")
+            field.placeholderString = "Wert für :\(name)"
+            let row = NSStackView(views: [NSTextField(labelWithString: ":\(name)"), field])
+            row.spacing = 10; row.distribution = .fill
+            stack.addArrangedSubview(row); fields.append((name, field))
+        }
+        stack.frame = NSRect(x: 0, y: 0, width: 360, height: CGFloat(names.count * 32))
+        alert.accessoryView = stack
+        alert.addButton(withTitle: "Ausführen"); alert.addButton(withTitle: "Abbrechen")
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        return SQLParameters.substitute(sql, values: Dictionary(uniqueKeysWithValues: fields.map { ($0.0, $0.1.stringValue) }))
+    }
+    func validateCurrentSQL() {
+        guard let query = resolvedSQL() else { return }
+        Task { do { try await database.validate(query); status = "SQL ist gültig" } catch { fail(error) } }
+    }
+    func toggleFavorite(_ query: String, name: String? = nil) {
+        if let index = favorites.firstIndex(where: { $0.sql == query }) { favorites.remove(at: index) }
+        else { favorites.insert(FavoriteQuery(name: name ?? "Abfrage \(favorites.count + 1)", sql: query), at: 0) }
+    }
+    func isFavorite(_ query: String) -> Bool { favorites.contains { $0.sql == query } }
     func fail(_ problem: Error) { error = problem.localizedDescription; busy = false; status = "Aktion fehlgeschlagen" }
     func demo() {
         guard !busy else { return }; busy = true; error = nil
@@ -170,6 +203,27 @@ final class Workspace: ObservableObject {
         let panel = NSSavePanel(); panel.allowedContentTypes = [.commaSeparatedText]; panel.nameFieldStringValue = "SheetSQL-Ergebnis.csv"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do { try ("\u{FEFF}" + displayedResult.csv).write(to: url, atomically: true, encoding: .utf8) } catch { fail(error) }
+    }
+    func exportExcel() {
+        let panel = NSSavePanel(); panel.allowedContentTypes = [UTType(filenameExtension: "xlsx") ?? .data]; panel.nameFieldStringValue = "SheetSQL-Ergebnis.xlsx"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { try ExcelExport.write(displayedResult, to: url.pathExtension.lowercased() == "xlsx" ? url : url.appendingPathExtension("xlsx")); status = "Excel-Ergebnis gespeichert" } catch { fail(error) }
+    }
+    func compareWithPrevious() {
+        guard !activeResult.columns.isEmpty else { return }
+        let candidates = resultTabs.filter { $0.id != selectedResultTab }
+        let other = candidates.last
+        let left = other?.result ?? result
+        let right = activeResult
+        let shared = left.columns.filter { right.columns.contains($0) }
+        let count = min(left.rows.count, right.rows.count)
+        var changed = 0
+        for row in 0..<count {
+            for column in shared {
+                if let a = left.columns.firstIndex(of: column), let b = right.columns.firstIndex(of: column), left.rows[row][a] != right.rows[row][b] { changed += 1 }
+            }
+        }
+        comparison = ResultComparison(leftTitle: other?.title ?? "Vorheriges Ergebnis", rightTitle: selectedResultTab == nil ? "Aktuelles Ergebnis" : (resultTabs.first { $0.id == selectedResultTab }?.title ?? "Aktuelles Ergebnis"), leftRows: left.rows.count, rightRows: right.rows.count, sharedColumns: shared, changedCells: changed, addedRows: max(0, right.rows.count - left.rows.count), removedRows: max(0, left.rows.count - right.rows.count))
     }
 }
 
@@ -206,14 +260,24 @@ struct SheetSQLApp: App {
                     Button("SQL speichern") { workspace.saveSQL() }.keyboardShortcut("s")
                     Button("SQL speichern unter …") { workspace.saveSQL(asNew: true) }.keyboardShortcut("s", modifiers: [.command, .shift])
                 }
+                CommandMenu("Arbeitsbereich") {
+                    Button("Arbeitsbereich öffnen …") { workspace.openWorkspace() }.keyboardShortcut("o", modifiers: [.command, .control])
+                    Button("Arbeitsbereich speichern") { _ = workspace.saveWorkspace() }.keyboardShortcut("s", modifiers: [.command, .control])
+                    Button("Arbeitsbereich speichern unter …") { _ = workspace.saveWorkspace(asNew: true) }.keyboardShortcut("s", modifiers: [.command, .control, .shift])
+                }
                 CommandMenu("Ergebnis") {
                     Button("In neuem Tab öffnen") { workspace.openResultTab() }
                         .keyboardShortcut("t", modifiers: [.command, .option]).disabled(workspace.activeResult.columns.isEmpty)
                     Button("Ergebnis-Tab schließen") {
                         if let id = workspace.selectedResultTab { workspace.closeResultTab(id) }
                     }.disabled(workspace.selectedResultTab == nil)
+                    Button("Als Excel exportieren …") { workspace.exportExcel() }.keyboardShortcut("e", modifiers: [.command]).disabled(workspace.activeResult.columns.isEmpty)
+                    Button("Mit vorherigem Ergebnis vergleichen") { workspace.compareWithPrevious() }.disabled(workspace.activeResult.columns.isEmpty)
                 }
-                CommandMenu("Abfrage") { Button("SQL ausführen") { workspace.run() }.keyboardShortcut(.return, modifiers: .command).disabled(workspace.busy) }
+                CommandMenu("Abfrage") {
+                    Button("SQL ausführen") { workspace.run() }.keyboardShortcut(.return, modifiers: .command).disabled(workspace.busy)
+                    Button("SQL prüfen") { workspace.validateCurrentSQL() }.keyboardShortcut("l", modifiers: .command).disabled(workspace.busy)
+                }
             }
     }
 }
@@ -373,7 +437,18 @@ struct ContentView: View {
             Button { model.formatSQL() } label: { Label("Formatieren", systemImage: "text.line.first.and.arrowtriangle.forward") }
                 .buttonStyle(.bordered)
                 .help("SQL formatieren")
-            Menu { ForEach(model.history, id: \.self) { sql in Button(String(sql.prefix(90))) { model.sql = sql } } } label: {
+            Menu {
+                Section("Verlauf") {
+                    ForEach(model.history, id: \.self) { query in Button(String(query.prefix(90))) { model.sql = query } }
+                }
+                Button(model.isFavorite(model.sql) ? "Favorit entfernen" : "Aktuelle Abfrage als Favorit speichern") { model.toggleFavorite(model.sql) }
+                if !model.favorites.isEmpty {
+                    Divider()
+                    Section("Favoriten") {
+                        ForEach(model.favorites) { favorite in Button(favorite.name) { model.sql = favorite.sql } }
+                    }
+                }
+            } label: {
                 Label("Verlauf", systemImage: "clock.arrow.circlepath")
             }
             .menuStyle(.borderedButton)
@@ -448,6 +523,8 @@ struct ContentView: View {
                 Spacer()
                 Button { model.openResultTab() } label: { Label("In neuem Tab", systemImage: "plus.square.on.square") }.disabled(model.activeResult.columns.isEmpty)
                 Button { model.export() } label: { Label("CSV exportieren", systemImage: "square.and.arrow.up") }.disabled(model.activeResult.columns.isEmpty || model.busy)
+                Button { model.exportExcel() } label: { Label("Excel exportieren", systemImage: "tablecells") }.disabled(model.activeResult.columns.isEmpty || model.busy)
+                Button { model.compareWithPrevious() } label: { Label("Vergleichen", systemImage: "square.2.layers.3d") }.disabled(model.activeResult.columns.isEmpty)
             }.padding(16)
             if model.activePresentation.isActive {
                 HStack {
@@ -475,6 +552,30 @@ struct ContentView: View {
                 ContentUnavailableView("Bereit für deine Abfrage", systemImage: "text.magnifyingglass", description: Text("SQL eingeben und auf Ausführen klicken."))
             } else { ResultGrid(result: model.displayedResult, presentation: $model.activePresentation).frame(maxWidth: .infinity, maxHeight: .infinity) }
         }.frame(maxHeight: .infinity)
+        .sheet(item: $model.comparison) { comparison in ComparisonView(comparison: comparison) }
+    }
+}
+
+private struct ComparisonView: View {
+    let comparison: ResultComparison
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Ergebnisvergleich").font(.title2.bold())
+            Text("\(comparison.leftTitle)  ↔  \(comparison.rightTitle)").foregroundStyle(.secondary)
+            HStack {
+                metric("Zeilen links", comparison.leftRows)
+                metric("Zeilen rechts", comparison.rightRows)
+                metric("Geänderte Zellen", comparison.changedCells)
+                metric("Neue Zeilen", comparison.addedRows)
+                metric("Entfernte Zeilen", comparison.removedRows)
+            }
+            Text("Gemeinsame Spalten: \(comparison.sharedColumns.isEmpty ? "keine" : comparison.sharedColumns.joined(separator: ", "))")
+                .font(.callout).foregroundStyle(.secondary)
+            Spacer()
+        }.padding(24).frame(width: 620, height: 230)
+    }
+    private func metric(_ label: String, _ value: Int) -> some View {
+        VStack(alignment: .leading) { Text(String(value)).font(.title3.bold()); Text(label).font(.caption).foregroundStyle(.secondary) }
     }
 }
 

@@ -5,8 +5,12 @@ struct Sheet: Identifiable, Sendable {
     var workbookID = UUID()
     let name: String
     let source: String
+    let sourceURL: URL?
     let columns: [String]
     let rows: [[Cell]]
+    init(workbookID: UUID = UUID(), name: String, source: String, sourceURL: URL? = nil, columns: [String], rows: [[Cell]]) {
+        self.workbookID = workbookID; self.name = name; self.source = source; self.sourceURL = sourceURL; self.columns = columns; self.rows = rows
+    }
 }
 enum Cell: Sendable, Equatable {
     case text(String), number(Double), null
@@ -117,7 +121,7 @@ enum Excel {
                 while used.contains(name.lowercased()) { name = "\(base)_\(n)"; n += 1 }
                 used.insert(name.lowercased()); return name
             }
-            result.append(Sheet(workbookID: workbookID, name: name, source: url.lastPathComponent, columns: columns, rows: rows.dropFirst().map { $0 + Array(repeating: .null, count: width - $0.count) }))
+            result.append(Sheet(workbookID: workbookID, name: name, source: url.lastPathComponent, sourceURL: url, columns: columns, rows: rows.dropFirst().map { $0 + Array(repeating: .null, count: width - $0.count) }))
         }
         guard !result.isEmpty else { throw AppError(message: "Keine Arbeitsblätter mit Daten gefunden.") }
         return result

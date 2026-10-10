@@ -156,3 +156,13 @@ SQL-Dateien über das Dateimenü oder die Ordner-Schaltfläche im Editor laden (
 „In neuem Tab“ im Ergebnisbereich (auch `⌥⌘T`) legt eine Kopie des Ergebnisses mit den aktuellen Filtern und der Sortierung an. Weitere Abfragen aktualisieren nur „Aktuelles Ergebnis“. Jeder aufbewahrte Tab hat eigene Filter und eine eigene Sortierung; CSV exportiert den ausgewählten Tab. Über × wird ein Tab geschlossen. Die ursprüngliche Abfrage erscheint als Tooltip des Tabnamens. Tabs bleiben auch beim Schließen der Excel-Quelldatei verfügbar, werden aber beim Beenden der App nicht gespeichert.
 
 Ergebnis-Tabs erscheinen oben im Arbeitsbereich. Beim Auswählen eines Ergebnis-Tabs entfallen SQL-Editor und Begrüßungskopf, sodass die Tabelle die gesamte verfügbare Höhe nutzt. „SQL-Konsole“ bringt Editor und aktuelles Ergebnis zurück; Text und Cursorposition bleiben erhalten. Sortieren, Filtern und Exportieren sind auch in der großen Tabellenansicht verfügbar.
+
+## Weitere Arbeitsfunktionen
+
+- **Verlauf und Favoriten:** Ausgeführte Abfragen erscheinen im Verlauf. Häufige Abfragen lassen sich als Favoriten ablegen und später direkt wieder in den Editor laden.
+- **Parameter:** Platzhalter wie `:region` oder `:minimum` werden beim Ausführen abgefragt. Die SQL-Datei bleibt unverändert; Texte werden sicher quotiert, Zahlen und `NULL` typgerecht eingesetzt.
+- **SQL prüfen:** „Abfrage → SQL prüfen“ validiert Syntax, SELECT-Schreibschutz und Einzelabfrage-Regel, ohne Daten zu verändern.
+- **Excel-Export:** Das Ergebnis kann neben CSV als echte `.xlsx`-Datei exportiert werden.
+- **Arbeitsbereiche:** Unter „Arbeitsbereich“ lassen sich geöffnete Excel-Dateien, SQL, Verlauf und Favoriten als `.sheetsql` speichern und wiederherstellen. Die Excel-Dateien selbst bleiben am ursprünglichen Speicherort.
+- **Ergebnisvergleich:** Das aktive Ergebnis kann mit dem vorherigen Ergebnis-Tab verglichen werden. Angezeigt werden gemeinsame Spalten, Zeilenanzahl, geänderte Zellen sowie neue und entfernte Zeilen.
+- **Tastatur:** `⌘↵` führt SQL aus, `⌘L` prüft die Abfrage, `⌘E` exportiert Excel, `⌥⌘T` öffnet einen Ergebnis-Tab und `⌃⌘S` speichert einen Arbeitsbereich.
