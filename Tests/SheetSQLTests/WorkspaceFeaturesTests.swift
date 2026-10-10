@@ -30,6 +30,18 @@ final class WorkspaceFeaturesTests: XCTestCase {
         XCTAssertEqual(decoded.filePaths, snapshot.filePaths)
     }
 
+    func testSheetProfilerClassifiesColumnsAndCountsEmptyValues() {
+        let sheet = Sheet(name: "Data", source: "fixture", columns: ["Name", "Amount"], rows: [[.text(" Nord "), .number(12)], [.null, .number(18)]])
+        let profiles = SheetProfiler.profile(sheet)
+        XCTAssertEqual(profiles[0].type, "Text")
+        XCTAssertEqual(profiles[0].nonEmpty, 1)
+        XCTAssertEqual(profiles[0].empty, 1)
+        XCTAssertEqual(profiles[0].distinct, 1)
+        XCTAssertEqual(profiles[1].type, "Zahl")
+        XCTAssertEqual(profiles[1].minimum, "12")
+        XCTAssertEqual(profiles[1].maximum, "18")
+    }
+
     func testDatabaseValidationRejectsWritesAndAcceptsSelects() async throws {
         let database = Database()
         let sourceURL = URL(fileURLWithPath: "/tmp/data.xlsx")

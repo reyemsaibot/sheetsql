@@ -25,6 +25,9 @@ final class Workspace: ObservableObject {
     @Published var favorites: [FavoriteQuery] = []
     @Published var comparison: ResultComparison?
     @Published var hasWorkspace = false
+    @Published var profileRequested = false
+    @Published var joinBuilderRequested = false
+    @Published var cleaningDemoRequested = false
     let editorController = SQLEditorController()
     let database = Database()
     var selectedSheet: Sheet? { sheets.first { $0.name == selected } }
@@ -278,11 +281,19 @@ struct SheetSQLApp: App {
                     Button("SQL ausführen") { workspace.run() }.keyboardShortcut(.return, modifiers: .command).disabled(workspace.busy)
                     Button("SQL prüfen") { workspace.validateCurrentSQL() }.keyboardShortcut("l", modifiers: .command).disabled(workspace.busy)
                 }
+                CommandMenu("Werkzeuge") {
+                    Button("Spaltenprofil öffnen") { workspace.profileRequested = true }.disabled(workspace.selectedSheet == nil)
+                    Button("JOIN-Builder öffnen") { workspace.joinBuilderRequested = true }.disabled(workspace.sheets.count < 2)
+                    Button("Datenbereinigung-Demo öffnen") { workspace.cleaningDemoRequested = true }
+                }
             }
     }
 }
 struct ContentView: View {
     @ObservedObject var model: Workspace
+    @State private var profileSheet: Sheet?
+    @State private var showJoinBuilder = false
+    @State private var showCleaningDemo = false
     private let accent = Color(red: 0.18, green: 0.48, blue: 0.39)
     var body: some View {
         HSplitView {
@@ -319,6 +330,18 @@ struct ContentView: View {
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }.tint(accent)
             .alert("SheetSQL", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
+            .sheet(item: $profileSheet) { sheet in ProfileView(sheet: sheet) }
+            .sheet(isPresented: $showJoinBuilder) { JoinBuilderView(sheets: model.sheets) { model.sql = $0; model.showSQLConsole(); model.editorController.focus() } }
+            .sheet(isPresented: $showCleaningDemo) { DataCleaningDemoView() }
+            .onChange(of: model.profileRequested) { _, requested in
+                if requested { profileSheet = model.selectedSheet; model.profileRequested = false }
+            }
+            .onChange(of: model.joinBuilderRequested) { _, requested in
+                if requested { showJoinBuilder = true; model.joinBuilderRequested = false }
+            }
+            .onChange(of: model.cleaningDemoRequested) { _, requested in
+                if requested { showCleaningDemo = true; model.cleaningDemoRequested = false }
+            }
     }
     var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -452,6 +475,17 @@ struct ContentView: View {
                 Label("Verlauf", systemImage: "clock.arrow.circlepath")
             }
             .menuStyle(.borderedButton)
+            Menu {
+                Button { profileSheet = model.selectedSheet } label: { Label("Spaltenprofil", systemImage: "chart.bar.xaxis") }
+                    .disabled(model.selectedSheet == nil)
+                Button { showJoinBuilder = true } label: { Label("JOIN-Builder", systemImage: "arrow.triangle.merge") }
+                    .disabled(model.sheets.count < 2)
+                Button { showCleaningDemo = true } label: { Label("Datenbereinigung-Demo", systemImage: "wand.and.stars") }
+            } label: {
+                Label("Werkzeuge", systemImage: "wrench.and.screwdriver")
+            }
+            .menuStyle(.borderedButton)
+            .help("Profiling, JOIN-Builder und Datenbereinigung")
             Button { model.run() } label: { Label("Ausführen", systemImage: "play.fill") }
                 .buttonStyle(.borderedProminent)
                 .disabled(model.busy)

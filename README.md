@@ -166,3 +166,6 @@ Ergebnis-Tabs erscheinen oben im Arbeitsbereich. Beim Auswählen eines Ergebnis-
 - **Arbeitsbereiche:** Unter „Arbeitsbereich“ lassen sich geöffnete Excel-Dateien, SQL, Verlauf und Favoriten als `.sheetsql` speichern und wiederherstellen. Die Excel-Dateien selbst bleiben am ursprünglichen Speicherort.
 - **Ergebnisvergleich:** Das aktive Ergebnis kann mit dem vorherigen Ergebnis-Tab verglichen werden. Angezeigt werden gemeinsame Spalten, Zeilenanzahl, geänderte Zellen sowie neue und entfernte Zeilen.
 - **Tastatur:** `⌘↵` führt SQL aus, `⌘L` prüft die Abfrage, `⌘E` exportiert Excel, `⌥⌘T` öffnet einen Ergebnis-Tab und `⌃⌘S` speichert einen Arbeitsbereich.
+- **Spaltenprofiling:** „Profil“ zeigt pro Spalte Typ, leere und nichtleere Werte, eindeutige Werte, Beispiele sowie Minimum und Maximum.
+- **JOIN-Builder:** „JOIN-Builder“ erzeugt `INNER`, `LEFT` oder `FULL OUTER JOIN`-SQL aus zwei Arbeitsblättern und passenden Spalten.
+- **Datenbereinigung-Demo:** „Bereinigung“ zeigt nicht-destruktiv, wie `TRIM`, `UPPER` und `REPLACE` auf einen Wert wirken und welcher SQL-Ausdruck daraus entsteht.
