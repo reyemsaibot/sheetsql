@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: Workspace
+    @Environment(\.dismiss) private var dismiss
     @State private var limitText = ""
     @FocusState private var limitFocused: Bool
     var body: some View {
@@ -14,7 +15,7 @@ struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 190)
                     .focused($limitFocused)
-                    .onSubmit { apply() }
+                    .onSubmit { applyAndClose() }
             }
             Text("Standard: 10.000. Höhere Werte können mehr Speicher benötigen.")
                 .font(.callout)
@@ -22,7 +23,7 @@ struct SettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("Übernehmen") { apply() }
+                Button("Übernehmen") { applyAndClose() }
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -33,9 +34,16 @@ struct SettingsView: View {
             limitFocused = true
         }
     }
-    private func apply() {
-        guard let value = Int(limitText.trimmingCharacters(in: .whitespacesAndNewlines)), value > 0 else { limitText = String(model.resultLimit); return }
-        model.resultLimit = value; model.status = "Ergebnislimit: \(value.formatted()) Zeilen"
+    private func applyAndClose() {
+        let trimmed = limitText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Int(trimmed), value > 0 else {
+            limitText = String(model.resultLimit)
+            model.status = "Bitte eine positive Zahl eingeben"
+            return
+        }
+        model.resultLimit = value
+        model.status = "Ergebnislimit: \(value.formatted()) Zeilen"
+        dismiss()
     }
 }
 
