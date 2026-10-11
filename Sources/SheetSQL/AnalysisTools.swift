@@ -18,6 +18,11 @@ struct JoinKeySuggestion: Identifiable, Sendable, Equatable {
     let rightColumn: String
     let score: Double
     let reason: String
+    let overlap: Double
+    let leftDuplicates: Int
+    let rightDuplicates: Int
+    let leftEmpty: Int
+    let rightEmpty: Int
 }
 
 enum SheetProfiler {
@@ -68,9 +73,13 @@ enum JoinKeyDetector {
                 var reasons: [String] = []
                 if leftKey == rightKey { score += 0.75; reasons.append("gleicher Spaltenname") }
                 else if leftKey.contains(rightKey) || rightKey.contains(leftKey) { score += 0.35; reasons.append("ähnlicher Spaltenname") }
-                let overlap = valueOverlap(leftColumn, in: left, rightColumn, in: right)
+                let metrics = valueMetrics(leftColumn, in: left, rightColumn, in: right)
+                let overlap = metrics.overlap
                 if overlap > 0.5 { score += 0.25; reasons.append("gemeinsame Werte") }
-                if score >= 0.35 { result.append(JoinKeySuggestion(id: "\(leftColumn)|\(rightColumn)", leftColumn: leftColumn, rightColumn: rightColumn, score: score, reason: reasons.joined(separator: ", "))) }
+                if metrics.leftDuplicates > 0 || metrics.rightDuplicates > 0 { reasons.append("Duplikate geprüft") }
+                if score >= 0.35 {
+                    result.append(JoinKeySuggestion(id: "\(leftColumn)|\(rightColumn)", leftColumn: leftColumn, rightColumn: rightColumn, score: score, reason: reasons.joined(separator: ", "), overlap: overlap, leftDuplicates: metrics.leftDuplicates, rightDuplicates: metrics.rightDuplicates, leftEmpty: metrics.leftEmpty, rightEmpty: metrics.rightEmpty))
+                }
             }
         }
         return result.sorted { $0.score > $1.score }
@@ -80,12 +89,15 @@ enum JoinKeyDetector {
         name.lowercased().replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression).replacingOccurrences(of: "id$", with: "", options: .regularExpression)
     }
 
-    private static func valueOverlap(_ leftColumn: String, in left: Sheet, _ rightColumn: String, in right: Sheet) -> Double {
-        guard let li = left.columns.firstIndex(of: leftColumn), let ri = right.columns.firstIndex(of: rightColumn) else { return 0 }
-        let l = Set(left.rows.compactMap { li < $0.count ? $0[li].display : nil }.filter { !$0.isEmpty })
-        let r = Set(right.rows.compactMap { ri < $0.count ? $0[ri].display : nil }.filter { !$0.isEmpty })
-        guard !l.isEmpty, !r.isEmpty else { return 0 }
-        return Double(l.intersection(r).count) / Double(min(l.count, r.count))
+    private static func valueMetrics(_ leftColumn: String, in left: Sheet, _ rightColumn: String, in right: Sheet) -> (overlap: Double, leftDuplicates: Int, rightDuplicates: Int, leftEmpty: Int, rightEmpty: Int) {
+        guard let li = left.columns.firstIndex(of: leftColumn), let ri = right.columns.firstIndex(of: rightColumn) else { return (0, 0, 0, 0, 0) }
+        let leftValues = left.rows.compactMap { li < $0.count ? $0[li].display : nil }
+        let rightValues = right.rows.compactMap { ri < $0.count ? $0[ri].display : nil }
+        let l = leftValues.filter { !$0.isEmpty }
+        let r = rightValues.filter { !$0.isEmpty }
+        let leftSet = Set(l), rightSet = Set(r)
+        let overlap = leftSet.isEmpty || rightSet.isEmpty ? 0 : Double(leftSet.intersection(rightSet).count) / Double(min(leftSet.count, rightSet.count))
+        return (overlap, l.count - leftSet.count, r.count - rightSet.count, leftValues.count - l.count, rightValues.count - r.count)
     }
 }
 
@@ -128,9 +140,9 @@ struct JoinBuilderView: View {
                 picker("Rechte Spalte", selection: $rightColumn, values: rightSheet?.columns ?? [])
             }
             if let suggestion = suggestions.first {
-                Button("Schlüsselvorschlag: \(suggestion.leftColumn) = \(suggestion.rightColumn) · \(suggestion.reason)") {
+                Button("Schlüsselvorschlag: \(suggestion.leftColumn) = \(suggestion.rightColumn) · \(Int(suggestion.overlap * 100))% Treffer · Duplikate: \(suggestion.leftDuplicates)/\(suggestion.rightDuplicates)") {
                     leftColumn = suggestion.leftColumn; rightColumn = suggestion.rightColumn
-                }.buttonStyle(.bordered).help("Automatisch erkannter JOIN-Schlüssel")
+                }.buttonStyle(.bordered).help("Automatisch erkannter JOIN-Schlüssel. Leere Werte: \(suggestion.leftEmpty)/\(suggestion.rightEmpty)")
             }
             GroupBox("Vorschau") {
                 Text(sql.isEmpty ? "Bitte alle Felder auswählen." : sql)

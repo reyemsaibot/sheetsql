@@ -13,7 +13,7 @@ extension Workspace {
             workspaceURL = destination
         }
         let paths = Array(Set(sheets.compactMap { $0.sourceURL?.path })).sorted()
-        let snapshot = WorkspaceSnapshot(sql: sql, sqlFilePath: sqlFileURL?.path, history: history, favorites: favorites, filePaths: paths)
+        let snapshot = WorkspaceSnapshot(sql: sql, sqlFilePath: sqlFileURL?.path, history: history, favorites: favorites, filePaths: paths, parameterProfiles: parameterProfiles, resultLimit: resultLimit)
         do {
             let data = try JSONEncoder().encode(snapshot)
             try data.write(to: destination!, options: .atomic)
@@ -28,7 +28,7 @@ extension Workspace {
         do {
             let snapshot = try JSONDecoder().decode(WorkspaceSnapshot.self, from: Data(contentsOf: url))
             workspaceURL = url
-            guard !snapshot.filePaths.isEmpty else { sql = snapshot.sql; history = snapshot.history; favorites = snapshot.favorites; status = "Arbeitsbereich geladen"; return }
+            guard !snapshot.filePaths.isEmpty else { sql = snapshot.sql; history = snapshot.history; favorites = snapshot.favorites; parameterProfiles = snapshot.parameterProfiles; resultLimit = max(1, snapshot.resultLimit); status = "Arbeitsbereich geladen"; return }
             loadWorkspaceFiles(snapshot)
         } catch { fail(error) }
     }
@@ -40,7 +40,7 @@ extension Workspace {
             do {
                 let imported = try await Task.detached { try urls.flatMap { try Excel.read($0) } }.value
                 try await addSheets(imported)
-                sql = snapshot.sql; history = snapshot.history; favorites = snapshot.favorites
+                sql = snapshot.sql; history = snapshot.history; favorites = snapshot.favorites; parameterProfiles = snapshot.parameterProfiles; resultLimit = max(1, snapshot.resultLimit)
                 if let path = snapshot.sqlFilePath { sqlFileURL = URL(fileURLWithPath: path); savedSQL = snapshot.sql }
                 resultTabs.removeAll(); result = QueryResult(); busy = false; status = "Arbeitsbereich geladen"
             } catch { fail(error) }

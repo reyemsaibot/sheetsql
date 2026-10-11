@@ -10,6 +10,13 @@ struct FavoriteQuery: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
+struct ParameterProfile: Identifiable, Codable, Equatable, Sendable {
+    let id: UUID
+    var name: String
+    var values: [String: String]
+    init(id: UUID = UUID(), name: String, values: [String: String]) { self.id = id; self.name = name; self.values = values }
+}
+
 struct WorkspaceSnapshot: Codable, Sendable {
     var version = 1
     var sql: String
@@ -17,6 +24,24 @@ struct WorkspaceSnapshot: Codable, Sendable {
     var history: [String]
     var favorites: [FavoriteQuery]
     var filePaths: [String]
+    var parameterProfiles: [ParameterProfile] = []
+    var resultLimit: Int = 10_000
+
+    private enum CodingKeys: String, CodingKey { case version, sql, sqlFilePath, history, favorites, filePaths, parameterProfiles, resultLimit }
+    init(sql: String, sqlFilePath: String?, history: [String], favorites: [FavoriteQuery], filePaths: [String], parameterProfiles: [ParameterProfile] = [], resultLimit: Int = 10_000) {
+        self.sql = sql; self.sqlFilePath = sqlFilePath; self.history = history; self.favorites = favorites; self.filePaths = filePaths; self.parameterProfiles = parameterProfiles; self.resultLimit = resultLimit
+    }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        version = try values.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        sql = try values.decode(String.self, forKey: .sql)
+        sqlFilePath = try values.decodeIfPresent(String.self, forKey: .sqlFilePath)
+        history = try values.decode([String].self, forKey: .history)
+        favorites = try values.decode([FavoriteQuery].self, forKey: .favorites)
+        filePaths = try values.decode([String].self, forKey: .filePaths)
+        parameterProfiles = try values.decodeIfPresent([ParameterProfile].self, forKey: .parameterProfiles) ?? []
+        resultLimit = max(1, try values.decodeIfPresent(Int.self, forKey: .resultLimit) ?? 10_000)
+    }
 }
 
 struct ResultComparison: Identifiable, Sendable {

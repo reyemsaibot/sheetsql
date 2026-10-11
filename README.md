@@ -19,6 +19,10 @@ SheetSQL ist eine native macOS-App, mit der Excel-Arbeitsblätter lokal per SQL 
 - Spaltenprofiling für Excel-Daten und aggregierte SQL-Ergebnisse
 - visueller JOIN-Builder mit `INNER`, `LEFT` und `FULL OUTER JOIN`
 - automatische Vorschläge für mögliche JOIN-Schlüssel
+- JOIN-Analyse mit Trefferquote, Duplikat- und Leerwertprüfung
+- gespeicherte Parameterprofile für wiederkehrende Abfragen
+- SQLite-Abfrageplan zur Einordnung von Scans und Zugriffen
+- Gruppierungs-/Pivot-Assistent für `SUM`, `AVG`, `MIN`, `MAX` und `COUNT`
 - nicht-destruktive Datenbereinigungs-Demo für `TRIM`, `UPPER` und `REPLACE`
 
 ## Voraussetzungen
@@ -48,6 +52,7 @@ swift test --disable-sandbox
 2. Ein Arbeitsblatt auswählen und SQL eingeben.
 3. Mit `⌘↵` ausführen.
 4. Ergebnisse filtern, sortieren oder in einem neuen Tab öffnen.
+5. Das Ergebnislimit lässt sich unter **SheetSQL > Einstellungen …** ändern; der Standardwert beträgt 10.000 Zeilen.
 
 Wichtige Tastaturkürzel:
 
@@ -80,23 +85,24 @@ Texte werden sicher quotiert, Zahlen numerisch eingesetzt und `NULL` erkannt.
 - **Spaltenprofil:** Typ, leere Werte, eindeutige Werte, Beispiele, Minimum und Maximum.
 - **Profil aktives SQL-Ergebnis:** dieselben Kennzahlen für aggregierte oder gefilterte Ergebnisse.
 - **JOIN-Builder:** Tabellen und Spalten auswählen, Schlüsselvorschläge prüfen und SQL in den Editor übernehmen.
+- **JOIN-Analyse:** Trefferquote sowie Duplikate und leere Schlüsselwerte vor dem Erzeugen des JOINs prüfen.
+- **Abfrageplan:** SQLite-Zugriffsplan der aktuellen Abfrage anzeigen.
+- **Gruppierungsassistent:** Eine `GROUP BY`-Auswertung aus Arbeitsblatt, Gruppenspalte, Wertspalte und Aggregation erzeugen.
+- **Parameterprofile:** Werte für `:parameter` speichern und beim Ausführen wiederverwenden.
 - **Datenbereinigung-Demo:** Auswirkungen typischer SQL-Bereinigungen vor der Ausführung nachvollziehen.
 
 ## Sinnvolle nächste Ergänzungen
 
 1. **Nicht-destruktive Datenbereinigung auf Arbeitsblättern:** bereinigte Ansicht als neue virtuelle Tabelle erzeugen.
-2. **Robustere JOIN-Analyse:** zusammengesetzte Schlüssel, Duplikate, NULL-Anteile und Trefferquoten anzeigen.
-3. **Abfrageparameter als gespeicherte Profile:** häufig verwendete Parameterwerte speichern und wiederverwenden.
-4. **Query-Plan und Performance-Hinweise:** Laufzeit, Scans und fehlende Filter verständlich erklären.
-5. **Pivot- und Gruppierungsassistent:** häufige Auswertungen ohne vollständige SQL-Eingabe erzeugen.
-6. **Automatisierte native UI-Tests:** zentrale Abläufe wie Öffnen, Einfügen, Ausführen, Tabwechsel und Schließen dauerhaft absichern.
-7. **Exportprofile:** Spaltenauswahl, Datumsformat und Zielordner für wiederkehrende Exporte speichern.
+2. **Zusammengesetzte JOIN-Schlüssel:** mehrere Spalten als Schlüssel bewerten und vorschlagen.
+3. **Automatisierte native UI-Tests:** zentrale Abläufe wie Öffnen, Einfügen, Ausführen, Tabwechsel und Schließen dauerhaft absichern.
+4. **Exportprofile:** Spaltenauswahl, Datumsformat und Zielordner für wiederkehrende Exporte speichern.
 
 ## Daten und Grenzen
 
 - Excel-Dateien werden als lesbare SQLite-Tabellen in einer temporären In-Memory-Datenbank verwendet.
 - Schreibende SQL-Befehle sind gesperrt; SheetSQL ist ein Analysewerkzeug.
-- Ergebnisse sind aktuell auf 10.000 Zeilen pro Abfrage begrenzt.
+- Ergebnisse sind standardmäßig auf 10.000 Zeilen pro Abfrage begrenzt. Das Limit kann in den Einstellungen auf einen höheren Wert gesetzt werden.
 - Arbeitsbereiche speichern Dateipfade, SQL, Verlauf und Favoriten. Die Excel-Dateien werden nicht kopiert.
 - Die automatische JOIN-Erkennung liefert Vorschläge, ersetzt aber keine fachliche Prüfung der Schlüssel.
 

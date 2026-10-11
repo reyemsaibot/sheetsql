@@ -29,8 +29,20 @@ final class Workspace: ObservableObject {
     @Published var resultProfileRequested = false
     @Published var joinBuilderRequested = false
     @Published var cleaningDemoRequested = false
+    @Published var queryPlanRequested = false
+    @Published var pivotBuilderRequested = false
+    @Published var queryPlan: QueryResult?
+    @Published var parameterProfiles: [ParameterProfile] = []
+    @Published var selectedParameterProfile: String?
+    @Published var resultLimit: Int {
+        didSet { UserDefaults.standard.set(resultLimit, forKey: "SheetSQL.resultLimit") }
+    }
     let editorController = SQLEditorController()
     let database = Database()
+    init() {
+        let saved = UserDefaults.standard.integer(forKey: "SheetSQL.resultLimit")
+        resultLimit = saved > 0 ? saved : 10_000
+    }
     var selectedSheet: Sheet? { sheets.first { $0.name == selected } }
     var sqlCompletionWords: [String] {
         let keywords = [
@@ -93,7 +105,7 @@ final class Workspace: ObservableObject {
         busy = true; error = nil
         Task {
             do {
-                let fetched = try await database.query(query)
+                let fetched = try await database.query(query, maxRows: resultLimit)
                 result = fetched
                 resultSQL = query
                 history.removeAll { $0 == query }
@@ -112,6 +124,18 @@ final class Workspace: ObservableObject {
     func formatSQL() {
         sql = SQLFormatter.format(sql)
         editorController.focus()
+    }
+    func explainCurrentSQL() {
+        guard !busy, let query = resolvedSQL(), !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        busy = true; error = nil
+        Task {
+            do {
+                queryPlan = try await database.explain(query)
+                status = "Abfrageplan erstellt"
+                busy = false
+                queryPlanRequested = true
+            } catch { fail(error) }
+        }
     }
     func copyToPasteboard(_ text: String) {
         NSPasteboard.general.clearContents()
@@ -149,7 +173,7 @@ final class Workspace: ObservableObject {
         Task {
             do {
                 try await database.validate(query)
-                result = try await database.query(query)
+                result = try await database.query(query, maxRows: resultLimit)
                 resultSQL = query
                 history.removeAll { $0 == query }; history.insert(query, at: 0); history = Array(history.prefix(15))
                 status = "\(result.rows.count.formatted()) Zeilen · \(Int(result.seconds * 1000)) ms"; busy = false
@@ -164,7 +188,7 @@ final class Workspace: ObservableObject {
         let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 8
         var fields: [(String, NSTextField)] = []
         for name in names {
-            let field = NSTextField(string: "")
+            let field = NSTextField(string: parameterProfiles.first { $0.name == selectedParameterProfile }?.values[name] ?? "")
             field.placeholderString = "Wert für :\(name)"
             let row = NSStackView(views: [NSTextField(labelWithString: ":\(name)"), field])
             row.spacing = 10; row.distribution = .fill
@@ -175,6 +199,22 @@ final class Workspace: ObservableObject {
         alert.addButton(withTitle: "Ausführen"); alert.addButton(withTitle: "Abbrechen")
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         return SQLParameters.substitute(sql, values: Dictionary(uniqueKeysWithValues: fields.map { ($0.0, $0.1.stringValue) }))
+    }
+    func saveCurrentParameterProfile() {
+        let names = SQLParameters.names(in: sql)
+        guard !names.isEmpty else { status = "Keine Parameter in der Abfrage"; return }
+        let nameAlert = NSAlert(); nameAlert.messageText = "Parameterprofil speichern"; nameAlert.informativeText = "Name des Profils"
+        let nameField = NSTextField(string: "Profil \(parameterProfiles.count + 1)"); nameAlert.accessoryView = nameField
+        nameAlert.addButton(withTitle: "Speichern"); nameAlert.addButton(withTitle: "Abbrechen")
+        guard nameAlert.runModal() == .alertFirstButtonReturn else { return }
+        var values: [String: String] = [:]
+        for name in names {
+            let alert = NSAlert(); alert.messageText = ":\(name)"; alert.informativeText = "Wert für diesen Parameter"
+            let field = NSTextField(string: ""); alert.accessoryView = field; alert.addButton(withTitle: "Weiter"); alert.addButton(withTitle: "Abbrechen")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }; values[name] = field.stringValue
+        }
+        let profile = ParameterProfile(name: nameField.stringValue.isEmpty ? "Profil \(parameterProfiles.count + 1)" : nameField.stringValue, values: values)
+        parameterProfiles.removeAll { $0.name == profile.name }; parameterProfiles.insert(profile, at: 0); selectedParameterProfile = profile.name; status = "Parameterprofil gespeichert"
     }
     func validateCurrentSQL() {
         guard let query = resolvedSQL() else { return }
@@ -281,14 +321,18 @@ struct SheetSQLApp: App {
                 CommandMenu("Abfrage") {
                     Button("SQL ausführen") { workspace.run() }.keyboardShortcut(.return, modifiers: .command).disabled(workspace.busy)
                     Button("SQL prüfen") { workspace.validateCurrentSQL() }.keyboardShortcut("l", modifiers: .command).disabled(workspace.busy)
+                    Button("Abfrageplan anzeigen") { workspace.explainCurrentSQL() }.disabled(workspace.busy)
+                    Button("Parameterprofil speichern") { workspace.saveCurrentParameterProfile() }
                 }
                 CommandMenu("Werkzeuge") {
                     Button("Spaltenprofil öffnen") { workspace.profileRequested = true }.disabled(workspace.selectedSheet == nil)
                     Button("Profil aktives SQL-Ergebnis öffnen") { workspace.resultProfileRequested = true }.disabled(workspace.activeResult.columns.isEmpty)
                     Button("JOIN-Builder öffnen") { workspace.joinBuilderRequested = true }.disabled(workspace.sheets.count < 2)
+                    Button("Gruppierungsassistent öffnen") { workspace.pivotBuilderRequested = true }.disabled(workspace.selectedSheet == nil)
                     Button("Datenbereinigung-Demo öffnen") { workspace.cleaningDemoRequested = true }
                 }
             }
+        Settings { SettingsView(model: workspace) }
     }
 }
 struct ContentView: View {
@@ -297,6 +341,8 @@ struct ContentView: View {
     @State private var showJoinBuilder = false
     @State private var showCleaningDemo = false
     @State private var showResultProfile = false
+    @State private var showQueryPlan = false
+    @State private var showPivotBuilder = false
     private let accent = Color(red: 0.18, green: 0.48, blue: 0.39)
     var body: some View {
         HSplitView {
@@ -337,6 +383,18 @@ struct ContentView: View {
             .sheet(isPresented: $showJoinBuilder) { JoinBuilderView(sheets: model.sheets) { model.sql = $0; model.showSQLConsole(); model.editorController.focus() } }
             .sheet(isPresented: $showCleaningDemo) { DataCleaningDemoView() }
             .sheet(isPresented: $showResultProfile) { ResultProfileView(result: model.activeResult) }
+            .sheet(isPresented: $showQueryPlan) {
+                if let plan = model.queryPlan { QueryPlanView(result: plan) }
+            }
+            .sheet(isPresented: $showPivotBuilder) {
+                if let sheet = model.selectedSheet {
+                    PivotBuilderView(sheet: sheet) { query in
+                        model.sql = query
+                        model.showSQLConsole()
+                        model.editorController.focus()
+                    }
+                }
+            }
             .onChange(of: model.profileRequested) { _, requested in
                 if requested { profileSheet = model.selectedSheet; model.profileRequested = false }
             }
@@ -348,6 +406,12 @@ struct ContentView: View {
             }
             .onChange(of: model.resultProfileRequested) { _, requested in
                 if requested { showResultProfile = true; model.resultProfileRequested = false }
+            }
+            .onChange(of: model.queryPlanRequested) { _, requested in
+                if requested { showQueryPlan = true; model.queryPlanRequested = false }
+            }
+            .onChange(of: model.pivotBuilderRequested) { _, requested in
+                if requested { showPivotBuilder = true; model.pivotBuilderRequested = false }
             }
     }
     var sidebar: some View {
@@ -481,6 +545,17 @@ struct ContentView: View {
                         ForEach(model.favorites) { favorite in Button(favorite.name) { model.sql = favorite.sql } }
                     }
                 }
+                if !model.parameterProfiles.isEmpty {
+                    Divider()
+                    Section("Parameterprofile") {
+                        ForEach(model.parameterProfiles) { profile in
+                            Button(model.selectedParameterProfile == profile.name ? "✓ \(profile.name)" : profile.name) {
+                                model.selectedParameterProfile = profile.name
+                                model.status = "Parameterprofil: \(profile.name)"
+                            }
+                        }
+                    }
+                }
             } label: {
                 Label("Verlauf", systemImage: "clock.arrow.circlepath")
             }
@@ -492,6 +567,11 @@ struct ContentView: View {
                     .disabled(model.activeResult.columns.isEmpty)
                 Button { showJoinBuilder = true } label: { Label("JOIN-Builder", systemImage: "arrow.triangle.merge") }
                     .disabled(model.sheets.count < 2)
+                Button { model.explainCurrentSQL() } label: { Label("Abfrageplan", systemImage: "speedometer") }
+                    .disabled(model.busy || model.sql.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button { showPivotBuilder = true } label: { Label("Gruppierungsassistent", systemImage: "chart.bar.xaxis") }
+                    .disabled(model.selectedSheet == nil)
+                Button { model.saveCurrentParameterProfile() } label: { Label("Parameterprofil speichern", systemImage: "person.crop.circle.badge.plus") }
                 Button { showCleaningDemo = true } label: { Label("Datenbereinigung-Demo", systemImage: "wand.and.stars") }
             } label: {
                 Label("Werkzeuge", systemImage: "wrench.and.screwdriver")
@@ -565,7 +645,7 @@ struct ContentView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 190)
                 .help("Alle sichtbaren Spalten durchsuchen")
-                if model.activeResult.truncated { Text("Auf 10.000 Zeilen begrenzt – auch im Export").font(.caption).foregroundStyle(.orange) }
+                if model.activeResult.truncated { Text("Auf \(model.resultLimit.formatted()) Zeilen begrenzt – auch im Export").font(.caption).foregroundStyle(.orange) }
                 Spacer()
                 Button { model.openResultTab() } label: { Label("In neuem Tab", systemImage: "plus.square.on.square") }.disabled(model.activeResult.columns.isEmpty)
                 Button { model.export() } label: { Label("CSV exportieren", systemImage: "square.and.arrow.up") }.disabled(model.activeResult.columns.isEmpty || model.busy)

@@ -22,12 +22,21 @@ final class WorkspaceFeaturesTests: XCTestCase {
     }
 
     func testWorkspaceSnapshotRoundTrip() throws {
-        let snapshot = WorkspaceSnapshot(sql: "SELECT 1", sqlFilePath: nil, history: ["SELECT 1"], favorites: [FavoriteQuery(name: "Test", sql: "SELECT 1")], filePaths: ["/tmp/data.xlsx"])
+        let snapshot = WorkspaceSnapshot(sql: "SELECT 1", sqlFilePath: nil, history: ["SELECT 1"], favorites: [FavoriteQuery(name: "Test", sql: "SELECT 1")], filePaths: ["/tmp/data.xlsx"], parameterProfiles: [ParameterProfile(name: "Nord", values: ["region": "Nord"])], resultLimit: 25_000)
         let data = try JSONEncoder().encode(snapshot)
         let decoded = try JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
         XCTAssertEqual(decoded.sql, snapshot.sql)
         XCTAssertEqual(decoded.favorites, snapshot.favorites)
         XCTAssertEqual(decoded.filePaths, snapshot.filePaths)
+        XCTAssertEqual(decoded.parameterProfiles, snapshot.parameterProfiles)
+        XCTAssertEqual(decoded.resultLimit, 25_000)
+    }
+
+    func testWorkspaceSnapshotDefaultsNewSettingsForOlderFiles() throws {
+        let data = #"{"sql":"SELECT 1","sqlFilePath":null,"history":[],"favorites":[],"filePaths":[]}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
+        XCTAssertEqual(decoded.parameterProfiles, [])
+        XCTAssertEqual(decoded.resultLimit, 10_000)
     }
 
     func testSheetProfilerClassifiesColumnsAndCountsEmptyValues() {
@@ -49,6 +58,19 @@ final class WorkspaceFeaturesTests: XCTestCase {
         XCTAssertEqual(suggestions.first?.leftColumn, "CustomerID")
         XCTAssertEqual(suggestions.first?.rightColumn, "CustomerID")
         XCTAssertTrue(suggestions.first?.reason.contains("gleicher Spaltenname") == true)
+        XCTAssertEqual(suggestions.first?.overlap, 1.0)
+        XCTAssertEqual(suggestions.first?.leftDuplicates, 0)
+        XCTAssertEqual(suggestions.first?.leftEmpty, 0)
+    }
+
+    func testJoinKeyDetectorReportsDuplicatesAndEmptyValues() {
+        let left = Sheet(name: "Left", source: "fixture", columns: ["Code"], rows: [[.text("A")], [.text("A")], [.null]])
+        let right = Sheet(name: "Right", source: "fixture", columns: ["Code"], rows: [[.text("A")], [.text("B")], [.text("B")]])
+        let suggestion = try! XCTUnwrap(JoinKeyDetector.suggestions(left: left, right: right).first)
+        XCTAssertEqual(suggestion.leftDuplicates, 1)
+        XCTAssertEqual(suggestion.rightDuplicates, 1)
+        XCTAssertEqual(suggestion.leftEmpty, 1)
+        XCTAssertEqual(suggestion.rightEmpty, 0)
     }
 
     func testDatabaseValidationRejectsWritesAndAcceptsSelects() async throws {
@@ -58,6 +80,15 @@ final class WorkspaceFeaturesTests: XCTestCase {
         XCTAssertEqual(added.first?.sourceURL, sourceURL)
         try await database.validate("SELECT * FROM Data")
         await XCTAssertThrowsErrorAsync { try await database.validate("DELETE FROM Data") }
+    }
+
+    func testDatabaseHonorsConfiguredResultLimit() async throws {
+        let database = Database()
+        let sheet = Sheet(name: "Data", source: "fixture", columns: ["value"], rows: (1...3).map { [.number(Double($0))] })
+        _ = try await database.add([sheet])
+        let result = try await database.query("SELECT * FROM Data", maxRows: 2)
+        XCTAssertEqual(result.rows.count, 2)
+        XCTAssertTrue(result.truncated)
     }
 
     @MainActor

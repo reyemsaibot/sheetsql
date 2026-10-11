@@ -64,7 +64,7 @@ actor Database {
             return sheets
         } catch { try? execute("ROLLBACK"); throw error }
     }
-    func query(_ sql: String) throws -> QueryResult {
+    func query(_ sql: String, maxRows: Int = 10_000) throws -> QueryResult {
         let start = Date()
         let deadline = UnsafeMutablePointer<Double>.allocate(capacity: 1)
         deadline.initialize(to: Date().timeIntervalSince1970 + 10)
@@ -96,7 +96,7 @@ actor Database {
             let status = sqlite3_step(statement)
             if status == SQLITE_DONE { break }
             guard status == SQLITE_ROW else { throw failure() }
-            if result.rows.count == 10_000 { result.truncated = true; break }
+            if result.rows.count == max(1, maxRows) { result.truncated = true; break }
             for index in 0..<sqlite3_column_count(statement) {
                 switch sqlite3_column_type(statement, index) {
                 case SQLITE_INTEGER, SQLITE_FLOAT: numeric.insert(Int(index))
@@ -111,6 +111,11 @@ actor Database {
         }
         result.numericColumns = numeric.subtracting(nonnumeric)
         result.seconds = Date().timeIntervalSince(start); return result
+    }
+
+    func explain(_ sql: String) throws -> QueryResult {
+        try validate(sql)
+        return try query("EXPLAIN QUERY PLAN \(sql)", maxRows: 1_000)
     }
 
     func validate(_ sql: String) throws {
