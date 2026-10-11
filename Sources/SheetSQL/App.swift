@@ -458,14 +458,17 @@ struct ContentView: View {
                 .font(.headline)
             if model.sqlFileURL != nil && model.sql != model.savedSQL { Text("•").help("Ungespeicherte Änderungen") }
             Spacer()
-            Button { model.openSQL() } label: { Label("Laden", systemImage: "folder") }
+            Button { model.openSQL() } label: { Image(systemName: "folder") }
                 .buttonStyle(.bordered)
+                .accessibilityLabel("SQL-Datei laden")
                 .help("SQL-Datei laden (⇧⌘O)")
-            Button { model.saveSQL() } label: { Label("Speichern", systemImage: "square.and.arrow.down") }
+            Button { model.saveSQL() } label: { Image(systemName: "square.and.arrow.down") }
                 .buttonStyle(.bordered)
+                .accessibilityLabel("SQL speichern")
                 .help("SQL speichern (⌘S)")
-            Button { model.formatSQL() } label: { Label("Formatieren", systemImage: "text.line.first.and.arrowtriangle.forward") }
+            Button { model.formatSQL() } label: { Image(systemName: "text.line.first.and.arrowtriangle.forward") }
                 .buttonStyle(.bordered)
+                .accessibilityLabel("SQL formatieren")
                 .help("SQL formatieren")
             Menu {
                 Section("Verlauf") {
