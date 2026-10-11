@@ -25,6 +25,8 @@ SheetSQL ist eine native macOS-App, mit der Excel-Arbeitsblätter lokal per SQL 
 - Gruppierungs-/Pivot-Assistent für `SUM`, `AVG`, `MIN`, `MAX` und `COUNT`
 - nicht-destruktive Datenbereinigungs-Demo für `TRIM`, `UPPER` und `REPLACE`
 
+Das Ergebnislimit wird unter **SheetSQL > Einstellungen …** eingegeben. Mit **Übernehmen** wird der Wert gespeichert, das Fenster geschlossen und der neue Wert im Hauptfenster bestätigt. Ungültige oder nicht-positive Eingaben werden zurückgewiesen.
+
 ## Voraussetzungen
 
 - macOS 14 oder neuer
@@ -78,6 +80,8 @@ WHERE "Region" = :region;
 
 Texte werden sicher quotiert, Zahlen numerisch eingesetzt und `NULL` erkannt.
 
+Ein Parameterprofil speichert die Werte für die aktuell erkannten Parameter. Profile werden im Menü **Verlauf** ausgewählt und zusammen mit einem Arbeitsbereich gespeichert.
+
 ## Werkzeuge
 
 Über **Werkzeuge** sind folgende Funktionen erreichbar:
@@ -91,6 +95,8 @@ Texte werden sicher quotiert, Zahlen numerisch eingesetzt und `NULL` erkannt.
 - **Parameterprofile:** Werte für `:parameter` speichern und beim Ausführen wiederverwenden.
 - **Datenbereinigung-Demo:** Auswirkungen typischer SQL-Bereinigungen vor der Ausführung nachvollziehen.
 
+Der Gruppierungsassistent übernimmt die erzeugte Abfrage in den SQL-Editor. Der Abfrageplan zeigt unter anderem Tabellen-Scans sowie temporäre Strukturen für `GROUP BY` und `ORDER BY`.
+
 ## Sinnvolle nächste Ergänzungen
 
 1. **Nicht-destruktive Datenbereinigung auf Arbeitsblättern:** bereinigte Ansicht als neue virtuelle Tabelle erzeugen.
@@ -103,12 +109,12 @@ Texte werden sicher quotiert, Zahlen numerisch eingesetzt und `NULL` erkannt.
 - Excel-Dateien werden als lesbare SQLite-Tabellen in einer temporären In-Memory-Datenbank verwendet.
 - Schreibende SQL-Befehle sind gesperrt; SheetSQL ist ein Analysewerkzeug.
 - Ergebnisse sind standardmäßig auf 10.000 Zeilen pro Abfrage begrenzt. Das Limit kann in den Einstellungen auf einen höheren Wert gesetzt werden.
-- Arbeitsbereiche speichern Dateipfade, SQL, Verlauf und Favoriten. Die Excel-Dateien werden nicht kopiert.
+- Arbeitsbereiche speichern Dateipfade, SQL, Verlauf, Favoriten, Parameterprofile und das Ergebnislimit. Die Excel-Dateien werden nicht kopiert.
 - Die automatische JOIN-Erkennung liefert Vorschläge, ersetzt aber keine fachliche Prüfung der Schlüssel.
 
 ## Tests und Release-Status
 
-Die Swift-Test-Suite deckt Excel-Import, SQL-Ausführung, Filterung, Sortierung, Tabs, Export, Arbeitsbereiche, Profiling und JOIN-Schlüsselerkennung ab. Native UI-Abläufe werden zusätzlich am erzeugten App-Bundle manuell geprüft.
+Die Swift-Test-Suite umfasst aktuell 26 Tests und deckt Excel-Import, SQL-Ausführung, konfigurierbare Ergebnislimits, Filterung, Sortierung, Tabs, Export, Arbeitsbereiche, Profiling und JOIN-Schlüsselerkennung ab. Native UI-Abläufe werden zusätzlich am erzeugten App-Bundle manuell geprüft.
 
 Der aktuelle Stand ist ein lokaler Entwicklungsbuild (`0.1.0`). Eine Developer-ID-Signatur, Notarisierung und ein automatischer Update-Kanal sind noch nicht eingerichtet.
 
