@@ -4,12 +4,22 @@ import AppKit
 @MainActor
 final class SQLEditorController {
     weak var editor: NSTextView?
+    var textUpdater: ((String) -> Void)?
     func insertIdentifier(_ name: String) {
         guard let editor else { return }
         editor.window?.makeFirstResponder(editor)
         editor.breakUndoCoalescing()
         editor.insertText(quoted(name), replacementRange: editor.selectedRange())
         editor.breakUndoCoalescing()
+        // Programmatic insertion does not always trigger the same layout pass as
+        // keyboard input. Update SwiftUI immediately and invalidate the native
+        // text layout so the inserted line is painted without requiring a space.
+        textUpdater?(editor.string)
+        editor.textStorage?.fixAttributes(in: NSRange(location: 0, length: editor.textStorage?.length ?? 0))
+        editor.layoutManager?.ensureLayout(for: editor.textContainer!)
+        editor.needsLayout = true
+        editor.needsDisplay = true
+        editor.enclosingScrollView?.needsDisplay = true
         editor.scrollRangeToVisible(editor.selectedRange())
     }
     func focus() {
@@ -58,6 +68,7 @@ struct SQLEditor: NSViewRepresentable {
         scroll.documentView = editor
         container.embed(scroll: scroll)
         controller.editor = editor
+        controller.textUpdater = { $text.wrappedValue = $0 }
         context.coordinator.highlight(editor)
         context.coordinator.updateGutter(in: container, text: editor.string)
         return container
