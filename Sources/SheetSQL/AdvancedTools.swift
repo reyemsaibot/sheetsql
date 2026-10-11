@@ -3,15 +3,35 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var model: Workspace
     @State private var limitText = ""
+    @FocusState private var limitFocused: Bool
     var body: some View {
-        Form {
-            Section("Abfrage") {
-                TextField("Maximale Ergebniszeilen", text: $limitText)
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Abfrage").font(.title3.weight(.semibold))
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text("Maximale Ergebniszeilen")
+                    .frame(width: 205, alignment: .leading)
+                TextField("10.000", text: $limitText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 190)
+                    .focused($limitFocused)
                     .onSubmit { apply() }
-                Text("Standard: 10.000. Höhere Werte können mehr Speicher benötigen.").font(.caption).foregroundStyle(.secondary)
-                Button("Übernehmen") { apply() }
             }
-        }.padding(24).frame(width: 430).onAppear { limitText = String(model.resultLimit) }
+            Text("Standard: 10.000. Höhere Werte können mehr Speicher benötigen.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button("Übernehmen") { apply() }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(28)
+        .frame(width: 560, height: 190)
+        .onAppear {
+            limitText = String(model.resultLimit)
+            limitFocused = true
+        }
     }
     private func apply() {
         guard let value = Int(limitText.trimmingCharacters(in: .whitespacesAndNewlines)), value > 0 else { limitText = String(model.resultLimit); return }
